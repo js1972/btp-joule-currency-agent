@@ -1,0 +1,17 @@
+# Important Commands for Joule Deployment:
+
+joule login
+
+# command to deploy a standalone assistant to test the agent individually
+
+joule deploy -c  -n "currency_agent_test"
+
+
+# command to launch that assistant
+
+joule launch "currency_agent_test"
+
+
+# command to deploy the capability directly in the default assistant "sap_digital_assistant"
+
+joule update "sap_digital_assistant" --capability-file capability.sapdas.yaml
