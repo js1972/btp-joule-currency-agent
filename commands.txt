@@ -1,5 +1,11 @@
 # Important Commands for Joule Deployment:
 
+# Install the Joule cli (Node > 20.12.0 and < 24:) - https://help.sap.com/docs/joule/joule-development-guide-ba88d1ec6a1b442098863d577c19b0c0/install-and-update-joule-studio-cli?locale=en-US
+
+npm install -g @sap/joule-studio-cli
+
+# login
+
 joule login
 
 # command to deploy a standalone assistant to test the agent individually

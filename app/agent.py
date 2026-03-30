@@ -82,9 +82,9 @@ class CurrencyAgent:
     def __init__(self):
 
         self.model = ChatOpenAI(
-            proxy_model_name='gpt-4o-mini', 
+            proxy_model_name='gpt-5-mini',
             proxy_client=proxy_client,
-            temperature=0            
+            temperature=0
         )
         self.tools = [get_exchange_rate]
 
