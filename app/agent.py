@@ -20,6 +20,13 @@ proxy_client = get_proxy_client('gen-ai-hub')
 memory = MemorySaver()
 
 
+def _invalid_currency_message() -> str:
+    return (
+        'I could not convert those currency codes. Please use standard ISO '
+        'currency codes such as USD, EUR, or GBP.'
+    )
+
+
 @tool
 def get_exchange_rate(
     currency_from: str = 'USD',
@@ -49,8 +56,22 @@ def get_exchange_rate(
         if 'rates' not in data:
             return {'error': 'Invalid API response format.'}
         return data
+    except httpx.HTTPStatusError as e:
+        if e.response is not None and e.response.status_code in {400, 404}:
+            return {'error': _invalid_currency_message()}
+        return {
+            'error': (
+                'I could not retrieve exchange rates right now. '
+                'Please try again later.'
+            )
+        }
     except httpx.HTTPError as e:
-        return {'error': f'API request failed: {e}'}
+        return {
+            'error': (
+                'I could not reach the exchange rate service right now. '
+                'Please try again later.'
+            )
+        }
     except ValueError:
         return {'error': 'Invalid JSON response from API.'}
 
@@ -70,7 +91,9 @@ class CurrencyAgent:
         "Your sole purpose is to use the 'get_exchange_rate' tool to answer questions about currency exchange rates. "
         'If the user asks about anything other than currency conversion or exchange rates, '
         'politely state that you cannot help with that topic and can only assist with currency-related queries. '
-        'Do not attempt to answer unrelated questions or use tools for other purposes.'
+        'Do not attempt to answer unrelated questions or use tools for other purposes. '
+        'If the tool indicates invalid or unsupported currency codes, explain that politely '
+        'and ask the user to use standard ISO currency codes such as USD, EUR, or GBP.'
     )
 
     FORMAT_INSTRUCTION = (

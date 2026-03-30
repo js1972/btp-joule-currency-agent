@@ -66,15 +66,14 @@ class CurrencyAgentExecutor(AgentExecutor):
                         ),
                     )
                 elif require_user_input:
-                    await updater.update_status(
-                        TaskState.input_required,
-                        new_agent_text_message(
-                            item['content'],
-                            task.context_id,
-                            task.id,
-                        ),
-                        final=True,
+                    # Joule extracts the final reply from task artifacts, so
+                    # user-facing failures and clarification messages must be
+                    # normalized into the same artifact shape as successes.
+                    await updater.add_artifact(
+                        [Part(root=TextPart(text=item['content']))],
+                        name='conversion_result',
                     )
+                    await updater.complete()
                     break
                 else:
                     await updater.add_artifact(

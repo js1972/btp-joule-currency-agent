@@ -8,6 +8,21 @@ This repository shows how to expose a custom Python AI agent to SAP Joule by:
 
 The example agent is a `Currency Agent` that answers exchange-rate questions.
 
+## Related Setup Guide
+
+This repository focuses on the code and deployment artifacts. For the surrounding Joule setup steps, see the SAP Community blog post:
+
+[Joule A2A: Connect Code-Based Agents into Joule](https://community.sap.com/t5/technology-blog-posts-by-sap/joule-a2a-connect-code-based-agents-into-joule/ba-p/14329279)
+
+That blog post covers:
+
+- which authorization roles a developer needs to use the Joule CLI
+- how to install and set up the Joule CLI
+- how to create the corresponding application in SAP Cloud Identity Services for Joule CLI access
+- how to package and deploy the Joule capability with the Joule CLI
+- how to launch and test the capability in a test Joule assistant
+- how to deploy or update the capability in the main production Joule assistant in your landscape
+
 ## End-to-End Flow
 
 1. A user asks Joule a currency question.
