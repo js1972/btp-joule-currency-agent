@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 
 import httpx
 
@@ -33,6 +34,33 @@ logger = logging.getLogger(__name__)
 HOST = os.getenv('HOST', '0.0.0.0')
 PORT = int(os.getenv('PORT', 10000))
 
+
+def get_public_url() -> str:
+    configured_url = os.getenv('AGENT_PUBLIC_URL')
+    if configured_url:
+        return configured_url.rstrip('/')
+
+    vcap_application = os.getenv('VCAP_APPLICATION')
+    if vcap_application:
+        try:
+            app_info = json.loads(vcap_application)
+        except json.JSONDecodeError:
+            logger.warning(
+                'VCAP_APPLICATION is present but could not be parsed. Falling back '
+                'to local HOST/PORT.'
+            )
+        else:
+            uris = app_info.get('application_uris') or app_info.get('uris') or []
+            if uris:
+                return f"https://{uris[0].rstrip('/')}"
+
+    logger.warning(
+        'AGENT_PUBLIC_URL and VCAP_APPLICATION are not set. Falling back to '
+        'local HOST/PORT for the agent card URL.'
+    )
+    host = 'localhost' if HOST in {'0.0.0.0', '::'} else HOST
+    return f'http://{host}:{PORT}'
+
 # Create agent capabilities and card
 capabilities = AgentCapabilities(streaming=True, push_notifications=True)
 skill = AgentSkill(
@@ -45,7 +73,7 @@ skill = AgentSkill(
 agent_card = AgentCard(
     name='Currency Agent',
     description='Helps with exchange rates for currencies',
-    url=f'https://currency-agent.cfapps.sap.hana.ondemand.com',
+    url=get_public_url(),
     version='1.0.0',
     default_input_modes=CurrencyAgent.SUPPORTED_CONTENT_TYPES,
     default_output_modes=CurrencyAgent.SUPPORTED_CONTENT_TYPES,

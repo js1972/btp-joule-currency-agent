@@ -199,6 +199,36 @@ A successful result should show:
 - `instances: 1/1`
 - `#0 running`
 
+### Agent Card URL
+
+The Python app publishes an A2A `AgentCard`, and that card includes a `url` field.
+
+Current behavior:
+
+- if `AGENT_PUBLIC_URL` is set, the app uses that value for the agent card URL
+- otherwise, the app uses the first route from Cloud Foundry `VCAP_APPLICATION.application_uris`
+- otherwise, for local development only, it falls back to `http://localhost:<PORT>`
+
+Important:
+
+- for the current Joule integration, Joule does not rely on the `AgentCard.url`
+- Joule calls the agent through the BTP destination referenced by the `CURRENCY_AGENT` system alias
+- the agent card URL is still important for correctness and for broader A2A interoperability outside this specific Joule flow
+
+Example override:
+
+```bash
+cf set-env currency-agent AGENT_PUBLIC_URL 'https://<public-front-door-url>'
+cf restart currency-agent
+```
+
+Use `AGENT_PUBLIC_URL` when the public URL that clients should see is not the raw Cloud Foundry app route, for example when using:
+
+- App Router
+- API Management
+- a custom domain
+- any other front-door or proxy URL
+
 ## Model Configuration
 
 The model is configured in `app/agent.py`.
