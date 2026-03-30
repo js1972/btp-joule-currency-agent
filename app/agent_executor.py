@@ -35,6 +35,9 @@ class CurrencyAgentExecutor(AgentExecutor):
         context: RequestContext,
         event_queue: EventQueue,
     ) -> None:
+        # Validate the inbound A2A request before any model or tool work starts.
+        # This hook is the right place to enforce app-specific guardrails such as
+        # payload size, supported content types, and message-part limits.
         error = self._validate_request(context)
         if error:
             raise ServerError(error=InvalidParamsError())
@@ -113,6 +116,20 @@ class CurrencyAgentExecutor(AgentExecutor):
             raise ServerError(error=InternalError())
 
     def _validate_request(self, context: RequestContext) -> bool:
+        # This method is called at the start of execute() for every inbound
+        # request. It currently returns False to indicate "no validation error".
+        #
+        # For a productionized agent, implement explicit checks here, for
+        # example:
+        # - reject requests with missing or empty user input
+        # - enforce a maximum prompt length
+        # - reject requests with too many message parts
+        # - allow only supported text content types
+        # - reject obviously malformed or oversized payloads before they reach
+        #   the model or any downstream tool/API calls
+        #
+        # Keep this validation cheap and deterministic. The goal is to fail fast
+        # on invalid input before spending time or money on LLM/tool execution.
         return False
 
     async def cancel(

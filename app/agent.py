@@ -104,7 +104,7 @@ def get_exchange_rate(
 
 
 class ResponseFormat(BaseModel):
-    """Respond to the user in this format."""
+    """Normalized final response contract shared with the executor layer."""
 
     status: Literal['input_required', 'completed', 'error'] = 'input_required'
     message: str
@@ -138,6 +138,8 @@ class CurrencyAgent:
         )
         self.tools = [get_exchange_rate]
 
+        # LangGraph handles the tool-calling loop, while ResponseFormat keeps
+        # the final model output predictable for the A2A executor and Joule.
         self.graph = create_react_agent(
             self.model,
             tools=self.tools,
@@ -157,12 +159,16 @@ class CurrencyAgent:
                 and message.tool_calls
                 and len(message.tool_calls) > 0
             ):
+                # Surface progress updates while the model has decided to call
+                # the exchange-rate tool but has not yet produced a final answer.
                 yield {
                     'is_task_complete': False,
                     'require_user_input': False,
                     'content': 'Looking up the exchange rates...',
                 }
             elif isinstance(message, ToolMessage):
+                # Tool messages indicate the external lookup has completed and
+                # the model is preparing the final user-facing response.
                 yield {
                     'is_task_complete': False,
                     'require_user_input': False,
@@ -172,6 +178,8 @@ class CurrencyAgent:
         yield self.get_agent_response(config)
 
     def get_agent_response(self, config):
+        # Convert the graph's structured response into the simpler executor
+        # contract that ultimately becomes the A2A/Joule artifact payload.
         current_state = self.graph.get_state(config)
         structured_response = current_state.values.get('structured_response')
         if structured_response and isinstance(

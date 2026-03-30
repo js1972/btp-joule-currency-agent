@@ -36,10 +36,13 @@ PORT = int(os.getenv('PORT', 10000))
 
 
 def get_public_url() -> str:
+    # Prefer an explicit override so deployments can advertise an App Router,
+    # API Management endpoint, or custom domain instead of the raw CF route.
     configured_url = os.getenv('AGENT_PUBLIC_URL')
     if configured_url:
         return configured_url.rstrip('/')
 
+    # In direct Cloud Foundry deployments, use the first mapped public route.
     vcap_application = os.getenv('VCAP_APPLICATION')
     if vcap_application:
         try:
@@ -73,6 +76,8 @@ skill = AgentSkill(
 agent_card = AgentCard(
     name='Currency Agent',
     description='Helps with exchange rates for currencies',
+    # Joule currently calls the app through the configured destination, but the
+    # agent card should still advertise the correct public URL for A2A clients.
     url=get_public_url(),
     version='1.0.0',
     default_input_modes=CurrencyAgent.SUPPORTED_CONTENT_TYPES,

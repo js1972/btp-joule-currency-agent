@@ -77,6 +77,8 @@ class IASAuthMiddleware:
         except PyJWTError as exc:
             raise AuthError('JWT validation failed') from exc
 
+        # IAS exposes API permissions in the ias_apis claim for this flow, so
+        # the backend checks that the calling client was granted the expected scope.
         if self.config.required_scope not in payload.get('ias_apis', []):
             raise AuthError(
                 f'Missing required ias_apis scope: {self.config.required_scope}'

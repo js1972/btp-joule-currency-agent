@@ -10,7 +10,7 @@ The example agent is a `Currency Agent` that answers exchange-rate questions.
 
 ## Related Setup Guide
 
-This repository focuses on the code and deployment artifacts. For the surrounding Joule setup steps, see the SAP Community blog post by Felix Bartler from SAP:
+This repository focuses on the code and deployment artifacts. Before using this agent template, read the SAP Community blog post by Felix Bartler from SAP:
 
 [Joule A2A: Connect Code-Based Agents into Joule](https://community.sap.com/t5/technology-blog-posts-by-sap/joule-a2a-connect-code-based-agents-into-joule/ba-p/14329279)
 
@@ -360,6 +360,25 @@ For Joule integration:
 - the BTP destination must use `OAuth2ClientCredentials`
 - the destination token service URL should be the IAS token endpoint, for example:
   `https://<ias-tenant>.accounts.cloud.sap/oauth2/token`
+
+For production hardening:
+- add rate limiting and cost-control guardrails before exposing the agent beyond basic testing
+- this can be done at the edge, in-app, or both, depending on your landscape architecture
+- the current template does not implement rate limiting
+
+## Additional Troubleshooting Reference
+
+For Joule-specific troubleshooting when deploying custom capabilities, see:
+
+[Extending SAP Joule with Custom DAS Capabilities](https://community.sap.com/t5/technology-blog-posts-by-sap/extending-sap-joule-with-custom-das-capabilities/ba-p/14359358)
+
+This is especially useful for:
+
+- checking whether the capability is deployed in the expected assistant
+- validating scenario selection behavior in Joule
+- diagnosing dialog function execution failures
+- investigating custom capability issues after the basic setup steps from the first blog are already complete
+- reviewing common end-to-end setup issues across Joule, destinations, and capability deployment
 
 ## Understanding The Code
 
