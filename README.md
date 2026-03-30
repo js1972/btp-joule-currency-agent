@@ -229,6 +229,30 @@ Use `AGENT_PUBLIC_URL` when the public URL that clients should see is not the ra
 - a custom domain
 - any other front-door or proxy URL
 
+## Template Limitations
+
+This repository is intentionally a simple working template, not a production-ready agent runtime.
+
+Current demo-oriented tradeoffs:
+
+- task state, push-notification config, and LangGraph checkpoint state are stored in memory only
+- that state will not survive app restarts
+- that state is not shared across multiple Cloud Foundry instances
+- the exchange-rate tool uses a blocking HTTP call for simplicity
+
+What this means:
+
+- this template is best treated as a single-instance demo or learning project
+- if you scale the app horizontally or restart it, active task/conversation state can be lost
+- the current blocking tool call pattern is fine for a low-traffic sample, but not ideal for a busier service
+
+Typical improvements for real agents built from this template:
+
+- replace in-memory task and checkpoint storage with durable backing stores
+- use a database or Redis-style shared store when state must survive restarts or be shared across instances
+- for LangGraph specifically, use a durable checkpointer instead of `MemorySaver`
+- replace blocking tool calls with async I/O or move blocking work off the event loop
+
 ## Model Configuration
 
 The model is configured in `app/agent.py`.
@@ -457,10 +481,6 @@ Responsibilities:
 - calls `CurrencyAgent.stream()`
 - converts agent output into A2A task status updates and artifacts
 
-#### `app/test_client.py`
-
-Manual client for testing the deployed A2A endpoint without Joule.
-
 ### Project Structure
 
 #### Root
@@ -477,7 +497,6 @@ Manual client for testing the deployed A2A endpoint without Joule.
 - `app/app.py`
 - `app/agent.py`
 - `app/agent_executor.py`
-- `app/test_client.py`
 - `app/manifest.yaml`
 - `app/requirements.txt`
 - `app/runtime.txt`

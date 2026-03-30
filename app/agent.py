@@ -20,6 +20,9 @@ proxy_client = get_proxy_client('gen-ai-hub')
 logger = logging.getLogger(__name__)
 
 
+# MemorySaver keeps LangGraph checkpoints in process memory only. That is fine
+# for a low-traffic demo, but real agents usually replace this with a durable
+# backend so conversation state survives restarts and scales across instances.
 memory = MemorySaver()
 
 
@@ -56,6 +59,9 @@ def get_exchange_rate(
             currency_date,
         )
     try:
+        # This blocking HTTP call keeps the sample easy to follow. For a
+        # higher-throughput agent, prefer an async HTTP client or run blocking
+        # tool calls off the event loop.
         response = httpx.get(
             f'https://api.frankfurter.app/{currency_date}',
             params={'from': currency_from, 'to': currency_to},

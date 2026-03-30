@@ -86,7 +86,9 @@ agent_card = AgentCard(
     skills=[skill],
 )
 
-# Create request handler and server
+# Create request handler and server. These stores are in-memory only, which is
+# acceptable for a single-instance demo template but not durable across restarts
+# or shared across multiple app instances.
 httpx_client = httpx.AsyncClient()
 push_config_store = InMemoryPushNotificationConfigStore()
 push_sender = BasePushNotificationSender(
