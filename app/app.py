@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from agent import CurrencyAgent
 from agent_executor import CurrencyAgentExecutor
+from auth import wrap_with_ias_auth
 
 
 load_dotenv()
@@ -70,6 +71,7 @@ server = A2AStarletteApplication(
 
 # Export the ASGI app for uvicorn
 app = server.build()
+app = wrap_with_ias_auth(app)
 
 
 if __name__ == '__main__':

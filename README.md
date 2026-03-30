@@ -108,10 +108,6 @@ Manual client for testing the deployed A2A endpoint without Joule.
   Top-level Joule deployment descriptor pointing to `./currency_agent_capability`.
 - `commands.txt`
   Joule CLI cheat-sheet.
-- `blog.md`
-  Longer article-style walkthrough.
-- `blog_shit.md`
-  Alternate or draft documentation.
 
 ### Python App
 
@@ -136,6 +132,7 @@ Before deploying this example, make sure you have:
 - a SAP BTP subaccount with Joule enabled
 - the Joule CLI installed
 - a Cloud Identity application created for Joule CLI login
+- an IAS application configured with an API permission/scope of your choice
 - access to a Cloud Foundry org and space
 - a SAP AI Core / Gen AI Hub setup with a running deployment for the model you want to use
 
@@ -153,9 +150,11 @@ cf push --no-start --random-route
 Use `--random-route` only the first time if the default route is already taken.
 After the first successful deployment, normal `cf push` should keep the existing route.
 
-### Set AI Core Environment Variables
+### Set Cloud Foundry Environment Variables
 
-Set the required values on the deployed app:
+Set all required values on the deployed app.
+
+AI Core / Gen AI Hub values:
 
 ```bash
 cf set-env currency-agent AICORE_AUTH_URL '<auth-url>'
@@ -163,6 +162,27 @@ cf set-env currency-agent AICORE_CLIENT_ID '<client-id>'
 cf set-env currency-agent AICORE_CLIENT_SECRET '<client-secret>'
 cf set-env currency-agent AICORE_RESOURCE_GROUP '<resource-group>'
 cf set-env currency-agent AICORE_BASE_URL '<base-url>'
+```
+
+IAS protection values:
+
+```bash
+cf set-env currency-agent IAS_ISSUER '<ias-issuer-url>'
+cf set-env currency-agent IAS_AUDIENCE '<ias-client-id>'
+cf set-env currency-agent IAS_REQUIRED_SCOPE '<ias-api-permission>'
+```
+
+Example:
+
+```bash
+cf set-env currency-agent AICORE_AUTH_URL 'https://<ai-core-auth-host>'
+cf set-env currency-agent AICORE_CLIENT_ID '***'
+cf set-env currency-agent AICORE_CLIENT_SECRET '***'
+cf set-env currency-agent AICORE_RESOURCE_GROUP '<resource-group>'
+cf set-env currency-agent AICORE_BASE_URL 'https://<ai-core-api-host>'
+cf set-env currency-agent IAS_ISSUER 'https://<ias-tenant>.accounts.cloud.sap'
+cf set-env currency-agent IAS_AUDIENCE '12345678-1234-1234-1234-123456789abc'
+cf set-env currency-agent IAS_REQUIRED_SCOPE 'api_read_access'
 ```
 
 Then restart or restage:
@@ -203,6 +223,28 @@ For this working setup:
 - `AICORE_RESOURCE_GROUP`
   Use the correct resource group name.
 
+### Important Notes About IAS Values
+
+The end-to-end auth model is:
+
+- the BTP destination uses `OAuth2ClientCredentials` to obtain a token from IAS
+- the Python agent validates the resulting bearer JWT on every request
+
+Important:
+- `IAS_ISSUER` is the issuer/base URL, for example:
+  `https://<ias-tenant>.accounts.cloud.sap`
+- do not append `/oauth2/token` to `IAS_ISSUER`
+- `IAS_AUDIENCE` should be the IAS application client ID
+- `IAS_REQUIRED_SCOPE` should match whatever API permission/scope you configured in IAS
+- a convenient way to confirm the issuer for your tenant is:
+  `https://<ias-tenant>.accounts.cloud.sap/.well-known/openid-configuration`
+- the issuer value used in `IAS_ISSUER` should match the issuer/base URL for that tenant, not the token endpoint
+
+Security behavior:
+- the app now fails closed by default
+- if `IAS_ISSUER` or `IAS_AUDIENCE` is missing, the app will not start
+- the only bypass is setting `ALLOW_UNAUTHENTICATED=true`, which should be used only for deliberate local or temporary test scenarios
+
 ### Verify The App Is Running
 
 ```bash
@@ -242,11 +284,32 @@ Create an HTTP destination in the BTP subaccount:
 - `Type`: `HTTP`
 - `URL`: the Cloud Foundry route of the deployed Python app
 - `Proxy Type`: `Internet`
-- `Authentication`: `NoAuthentication` for the initial end-to-end test
+- `Authentication`: `OAuth2ClientCredentials`
+- `Client ID`: the IAS application client ID
+- `Client Secret`: the IAS application client secret
+- `Token Service URL`: `https://<ias-tenant>.accounts.cloud.sap/oauth2/token`
+- `Token Service URL Type`: `Dedicated`
+- `Use Basic credentials for Token Service`: enabled
+
+Example destination values:
+
+- `Name`: `CURRENCY_AGENT`
+- `Type`: `HTTP`
+- `URL`: `https://currency-agent-<route>.cfapps.us10.hana.ondemand.com`
+- `Proxy Type`: `Internet`
+- `Authentication`: `OAuth2ClientCredentials`
+- `Client ID`: `12345678-1234-1234-1234-123456789abc`
+- `Client Secret`: `<your-ias-client-secret>`
+- `Token Service URL`: `https://<ias-tenant>.accounts.cloud.sap/oauth2/token`
+- `Token Service URL Type`: `Dedicated`
+- `Use Basic credentials for Token Service`: enabled
 
 Important:
 - the destination name must match the alias mapping in `currency_agent_capability/capability.sapdas.yaml`
-- for the initial test, the destination should point directly to the Python app URL
+- the destination should point directly to the Python app URL
+- the destination client must be authorized in IAS for the same API permission/scope configured in `IAS_REQUIRED_SCOPE`
+- the destination token endpoint uses `/oauth2/token`
+- this is different from `IAS_ISSUER`, which should remain the base issuer URL without `/oauth2/token`
 
 ## Deploy The Joule Capability
 
@@ -268,9 +331,10 @@ Why from the repo root:
 After deployment:
 
 1. confirm the Python app is running in Cloud Foundry
-2. confirm the destination `CURRENCY_AGENT` points to the correct route
-3. deploy the capability into a test assistant
-4. launch the test assistant and ask a currency question
+2. confirm an unauthenticated direct call to the Python app returns `401`
+3. confirm the destination `CURRENCY_AGENT` points to the correct route and uses `OAuth2ClientCredentials`
+4. deploy the capability into a test assistant
+5. launch the test assistant and ask a currency question
 
 Example prompts:
 - `What is the exchange rate between USD and GBP?`
@@ -312,15 +376,15 @@ That description is the main routing hint Joule uses during scenario selection.
 
 ## Security Note
 
-The current working setup uses `NoAuthentication` on the destination to prove the end-to-end flow.
+The current code now enforces IAS JWT validation on every inbound request, while the BTP destination uses OAuth2 client credentials to obtain the bearer token from IAS.
 
-That is acceptable for an initial test in a controlled environment, but it should not be the final design.
+Current behavior:
+- requests without a bearer token return `401`
+- requests with an invalid token return `401`
+- requests missing the API permission/scope configured in `IAS_REQUIRED_SCOPE` return `401`
+- the app will not start if `IAS_ISSUER` or `IAS_AUDIENCE` is missing
 
-Important:
-- there is currently no authorization check on this agent endpoint
-- the deployed Cloud Foundry route is effectively open to the world
-- the current setup should be treated as a temporary development or test-only configuration
-
-TODO:
-- add authentication and authorization using OAuth client credentials flow with SAP Cloud Identity Services
-- update the BTP destination to use the protected endpoint instead of `NoAuthentication`
+For Joule integration:
+- the BTP destination must use `OAuth2ClientCredentials`
+- the destination token service URL should be the IAS token endpoint, for example:
+  `https://<ias-tenant>.accounts.cloud.sap/oauth2/token`
