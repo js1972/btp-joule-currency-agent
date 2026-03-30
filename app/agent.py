@@ -1,4 +1,4 @@
-import os
+import logging
 
 from collections.abc import AsyncIterable
 from typing import Any, Literal
@@ -14,7 +14,10 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from pydantic import BaseModel
 
+from logging_utils import payload_logging_enabled
+
 proxy_client = get_proxy_client('gen-ai-hub')
+logger = logging.getLogger(__name__)
 
 
 memory = MemorySaver()
@@ -45,18 +48,36 @@ def get_exchange_rate(
         A dictionary containing the exchange rate data, or an error message if
         the request fails.
     """
+    if logger.isEnabledFor(logging.DEBUG) and payload_logging_enabled():
+        logger.debug(
+            'Calling get_exchange_rate with from=%s to=%s date=%s',
+            currency_from,
+            currency_to,
+            currency_date,
+        )
     try:
         response = httpx.get(
             f'https://api.frankfurter.app/{currency_date}',
             params={'from': currency_from, 'to': currency_to},
+            timeout=10.0,
         )
         response.raise_for_status()
 
         data = response.json()
         if 'rates' not in data:
             return {'error': 'Invalid API response format.'}
+        if logger.isEnabledFor(logging.DEBUG) and payload_logging_enabled():
+            logger.debug('Exchange rate API response: %s', data)
         return data
     except httpx.HTTPStatusError as e:
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                'Exchange rate API returned status=%s for from=%s to=%s date=%s',
+                e.response.status_code if e.response is not None else 'unknown',
+                currency_from,
+                currency_to,
+                currency_date,
+            )
         if e.response is not None and e.response.status_code in {400, 404}:
             return {'error': _invalid_currency_message()}
         return {
@@ -65,7 +86,13 @@ def get_exchange_rate(
                 'Please try again later.'
             )
         }
-    except httpx.HTTPError as e:
+    except httpx.HTTPError:
+        logger.warning(
+            'Exchange rate service request failed for from=%s to=%s date=%s',
+            currency_from,
+            currency_to,
+            currency_date,
+        )
         return {
             'error': (
                 'I could not reach the exchange rate service right now. '

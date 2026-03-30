@@ -10,7 +10,7 @@ The example agent is a `Currency Agent` that answers exchange-rate questions.
 
 ## Related Setup Guide
 
-This repository focuses on the code and deployment artifacts. For the surrounding Joule setup steps, see the SAP Community blog post:
+This repository focuses on the code and deployment artifacts. For the surrounding Joule setup steps, see the SAP Community blog post by Felix Bartler from SAP:
 
 [Joule A2A: Connect Code-Based Agents into Joule](https://community.sap.com/t5/technology-blog-posts-by-sap/joule-a2a-connect-code-based-agents-into-joule/ba-p/14329279)
 
@@ -23,6 +23,9 @@ That blog post covers:
 - how to launch and test the capability in a test Joule assistant
 - how to deploy or update the capability in the main production Joule assistant in your landscape
 
+Note:
+- if your SAP Cloud Identity Services tenant enforces MFA, append the current MFA code to the end of your password when logging in with the Joule CLI
+
 ## End-to-End Flow
 
 1. A user asks Joule a currency question.
@@ -33,112 +36,6 @@ That blog post covers:
 6. That destination points to the deployed Python A2A service from the `app/` folder.
 7. The Python service processes the request and returns an A2A response.
 8. The function extracts the text result and returns it to Joule.
-
-## How The SAP YAML Files Work Together
-
-### `currency_agent_capability/capability.sapdas.yaml`
-
-Defines the capability package and the remote system alias.
-
-Responsibilities:
-- gives the capability its identity and metadata
-- declares the required `joule.ext` namespace
-- maps the system alias `CURRENCY_AGENT` to the SAP destination `CURRENCY_AGENT`
-
-### `currency_agent_capability/functions/currency_agent_function.yaml`
-
-Defines what Joule executes when the scenario is selected.
-
-Responsibilities:
-- sends an `agent-request` to the remote A2A service
-- stores the result in `apiResponse`
-- extracts `apiResponse.body.artifacts[0].parts[0].text`
-- returns that text back to Joule
-
-### `currency_agent_capability/scenarios/currency_agent_scenario.yaml`
-
-Defines the Joule-facing scenario.
-
-Responsibilities:
-- provides the description Joule uses during scenario selection
-- points to the target function `currency_agent_function`
-
-Important:
-- the scenario `description` is one of the most important fields in the project
-- it is the main routing hint Joule uses to decide whether this scenario matches a user request
-- if the description is too vague, routing may fail
-- if multiple scenarios have very similar descriptions, Joule selection quality will get worse
-
-Recommended style for scenario descriptions:
-- 1 to 3 sentences
-- specific and scoped
-- explicit business vocabulary
-- no generic marketing language
-
-## How The Python Files Work Together
-
-### `app/app.py`
-
-Server bootstrap.
-
-Responsibilities:
-- loads environment variables
-- creates the A2A `AgentCard`
-- creates the request handler and task stores
-- registers `CurrencyAgentExecutor`
-- builds the ASGI app for `uvicorn`
-
-### `app/agent.py`
-
-Actual agent logic.
-
-Responsibilities:
-- defines the `get_exchange_rate` tool
-- defines the structured response format
-- constructs the LangGraph ReAct agent
-- configures the model through SAP Gen AI Hub / AI Core
-- streams progress and final results
-
-### `app/agent_executor.py`
-
-A2A protocol adapter.
-
-Responsibilities:
-- receives the A2A request context
-- creates or resumes tasks
-- calls `CurrencyAgent.stream()`
-- converts agent output into A2A task status updates and artifacts
-
-### `app/test_client.py`
-
-Manual client for testing the deployed A2A endpoint without Joule.
-
-## Project Structure
-
-### Root
-
-- `README.md`
-  Main project documentation.
-- `da.sapdas.yaml`
-  Top-level Joule deployment descriptor pointing to `./currency_agent_capability`.
-- `commands.txt`
-  Joule CLI cheat-sheet.
-
-### Python App
-
-- `app/app.py`
-- `app/agent.py`
-- `app/agent_executor.py`
-- `app/test_client.py`
-- `app/manifest.yaml`
-- `app/requirements.txt`
-- `app/runtime.txt`
-
-### Joule Capability
-
-- `currency_agent_capability/capability.sapdas.yaml`
-- `currency_agent_capability/functions/currency_agent_function.yaml`
-- `currency_agent_capability/scenarios/currency_agent_scenario.yaml`
 
 ## Prerequisites
 
@@ -198,6 +95,8 @@ cf set-env currency-agent AICORE_BASE_URL 'https://<ai-core-api-host>'
 cf set-env currency-agent IAS_ISSUER 'https://<ias-tenant>.accounts.cloud.sap'
 cf set-env currency-agent IAS_AUDIENCE '12345678-1234-1234-1234-123456789abc'
 cf set-env currency-agent IAS_REQUIRED_SCOPE 'api_read_access'
+cf set-env currency-agent LOG_LEVEL 'INFO'
+cf set-env currency-agent LOG_PAYLOADS 'false'
 ```
 
 Then restart or restage:
@@ -219,6 +118,34 @@ cf restage currency-agent
 - if you paste literal credentials into `cf set-env`, use single quotes so shell special characters are preserved
 - if you already exported shell variables locally, use double quotes around variable expansion, for example:
   `cf set-env currency-agent AICORE_CLIENT_SECRET "$AICORE_CLIENT_SECRET"`
+
+### Logging Configuration
+
+The app uses safe operational logging by default.
+
+Supported logging environment variables:
+
+- `LOG_LEVEL`
+  Controls the Python log level. Recommended default: `INFO`
+- `LOG_PAYLOADS`
+  Controls whether request, agent-stream, and tool payloads are logged at `DEBUG` level. Recommended default: `false`
+
+Example:
+
+```bash
+cf set-env currency-agent LOG_LEVEL 'DEBUG'
+cf set-env currency-agent LOG_PAYLOADS 'true'
+cf restart currency-agent
+```
+
+Logging behavior:
+
+- `INFO`
+  logs only safe correlation details such as task ID, context ID, request start, and request completion
+- `DEBUG` with `LOG_PAYLOADS=true`
+  additionally logs inbound user queries, agent stream items, tool arguments, and upstream tool responses for debugging
+- raw framework object dumps are intentionally not logged
+- do not leave `LOG_PAYLOADS=true` enabled in shared or production environments unless you explicitly want payload-level debugging
 
 ### Important Notes About AI Core Values
 
@@ -403,3 +330,111 @@ For Joule integration:
 - the BTP destination must use `OAuth2ClientCredentials`
 - the destination token service URL should be the IAS token endpoint, for example:
   `https://<ias-tenant>.accounts.cloud.sap/oauth2/token`
+
+## Understanding The Code
+
+### How The SAP YAML Files Work Together
+
+#### `currency_agent_capability/capability.sapdas.yaml`
+
+Defines the capability package and the remote system alias.
+
+Responsibilities:
+- gives the capability its identity and metadata
+- declares the required `joule.ext` namespace
+- maps the system alias `CURRENCY_AGENT` to the SAP destination `CURRENCY_AGENT`
+
+#### `currency_agent_capability/functions/currency_agent_function.yaml`
+
+Defines what Joule executes when the scenario is selected.
+
+Responsibilities:
+- sends an `agent-request` to the remote A2A service
+- stores the result in `apiResponse`
+- extracts `apiResponse.body.artifacts[0].parts[0].text`
+- returns that text back to Joule
+
+#### `currency_agent_capability/scenarios/currency_agent_scenario.yaml`
+
+Defines the Joule-facing scenario.
+
+Responsibilities:
+- provides the description Joule uses during scenario selection
+- points to the target function `currency_agent_function`
+
+Important:
+- the scenario `description` is one of the most important fields in the project
+- it is the main routing hint Joule uses to decide whether this scenario matches a user request
+- if the description is too vague, routing may fail
+- if multiple scenarios have very similar descriptions, Joule selection quality will get worse
+
+Recommended style for scenario descriptions:
+- 1 to 3 sentences
+- specific and scoped
+- explicit business vocabulary
+- no generic marketing language
+
+### How The Python Files Work Together
+
+#### `app/app.py`
+
+Server bootstrap.
+
+Responsibilities:
+- loads environment variables
+- creates the A2A `AgentCard`
+- creates the request handler and task stores
+- registers `CurrencyAgentExecutor`
+- builds the ASGI app for `uvicorn`
+
+#### `app/agent.py`
+
+Actual agent logic.
+
+Responsibilities:
+- defines the `get_exchange_rate` tool
+- defines the structured response format
+- constructs the LangGraph ReAct agent
+- configures the model through SAP Gen AI Hub / AI Core
+- streams progress and final results
+
+#### `app/agent_executor.py`
+
+A2A protocol adapter.
+
+Responsibilities:
+- receives the A2A request context
+- creates or resumes tasks
+- calls `CurrencyAgent.stream()`
+- converts agent output into A2A task status updates and artifacts
+
+#### `app/test_client.py`
+
+Manual client for testing the deployed A2A endpoint without Joule.
+
+### Project Structure
+
+#### Root
+
+- `README.md`
+  Main project documentation.
+- `da.sapdas.yaml`
+  Top-level Joule deployment descriptor pointing to `./currency_agent_capability`.
+- `commands.txt`
+  Joule CLI cheat-sheet.
+
+#### Python App
+
+- `app/app.py`
+- `app/agent.py`
+- `app/agent_executor.py`
+- `app/test_client.py`
+- `app/manifest.yaml`
+- `app/requirements.txt`
+- `app/runtime.txt`
+
+#### Joule Capability
+
+- `currency_agent_capability/capability.sapdas.yaml`
+- `currency_agent_capability/functions/currency_agent_function.yaml`
+- `currency_agent_capability/scenarios/currency_agent_scenario.yaml`

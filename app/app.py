@@ -20,11 +20,12 @@ from dotenv import load_dotenv
 from agent import CurrencyAgent
 from agent_executor import CurrencyAgentExecutor
 from auth import wrap_with_ias_auth
+from logging_utils import configure_logging
 
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 

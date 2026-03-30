@@ -18,9 +18,9 @@ from a2a.utils import (
 from a2a.utils.errors import ServerError
 
 from agent import CurrencyAgent
+from logging_utils import payload_logging_enabled
 
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -46,15 +46,30 @@ class CurrencyAgentExecutor(AgentExecutor):
             task = new_task(context.message)  # type: ignore
             await event_queue.enqueue_event(task)
         updater = TaskUpdater(event_queue, task.id, task.context_id)
-        
-        # Log all properties of the context and task objects
-        logger.info(f"Context properties: {vars(context)}")
-        logger.info(f"Task properties: {vars(task)}")
-        
+
+        logger.info(
+            'Executing request for task_id=%s context_id=%s new_task=%s',
+            task.id,
+            task.context_id,
+            context.current_task is None,
+        )
+        if logger.isEnabledFor(logging.DEBUG) and payload_logging_enabled():
+            logger.debug('Inbound user query for task_id=%s: %r', task.id, query)
+
         try:
             async for item in self.agent.stream(query, task.context_id):
                 is_task_complete = item['is_task_complete']
                 require_user_input = item['require_user_input']
+                if logger.isEnabledFor(logging.DEBUG) and payload_logging_enabled():
+                    logger.debug(
+                        'Agent stream item for task_id=%s: %s',
+                        task.id,
+                        {
+                            'is_task_complete': is_task_complete,
+                            'require_user_input': require_user_input,
+                            'content': item['content'],
+                        },
+                    )
 
                 if not is_task_complete and not require_user_input:
                     await updater.update_status(
@@ -83,9 +98,19 @@ class CurrencyAgentExecutor(AgentExecutor):
                     await updater.complete()
                     break
 
-        except Exception as e:
-            logger.error(f'An error occurred while streaming the response: {e}')
-            raise ServerError(error=InternalError()) from e
+            logger.info(
+                'Completed request for task_id=%s context_id=%s',
+                task.id,
+                task.context_id,
+            )
+
+        except Exception:
+            logger.exception(
+                'Request failed for task_id=%s context_id=%s',
+                task.id,
+                task.context_id,
+            )
+            raise ServerError(error=InternalError())
 
     def _validate_request(self, context: RequestContext) -> bool:
         return False
