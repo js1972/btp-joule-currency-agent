@@ -4,7 +4,7 @@
 
 npm install -g @sap/joule-studio-cli
 
-# login
+# login - if MFA is active on teh cloud identity tenant then append the mfa code to your password
 
 joule login
 
