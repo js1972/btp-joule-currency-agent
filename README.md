@@ -48,6 +48,44 @@ Before deploying this example, make sure you have:
 - access to a Cloud Foundry org and space
 - a SAP AI Core / Gen AI Hub setup with a running deployment for the model you want to use
 
+## Python Dependency Note
+
+The Python dependencies for this repo are intentionally pinned in
+`app/requirements.txt`.
+
+Important:
+
+- `a2a-sdk` is pinned to `0.3.26`
+- this repo does not yet support `a2a-sdk` `1.0.0`
+- the rest of the direct Python dependencies are also pinned so installs stay
+  reproducible even though this repository does not currently include a lockfile
+
+Why `a2a-sdk` is pinned:
+
+- `a2a-sdk` `1.0.0` introduced breaking changes and requires a migration
+- this codebase currently uses the pre-1.0 server bootstrap and helper APIs
+- the current app depends on types and helpers that changed in `1.0.0`, for
+  example:
+  - `A2AStarletteApplication`
+  - `AgentCard.url`
+  - `a2a.utils.new_agent_text_message`
+  - `a2a.utils.new_task`
+  - `TextPart`
+  - older task-state enum names
+
+What that means for this project:
+
+- upgrading `a2a-sdk` to `1.0.0` is not a safe version bump
+- the app bootstrap in `app/app.py` and the executor adapter in
+  `app/agent_executor.py` both need code changes
+- until that migration is done and validated against Joule end to end, this
+  repo stays on `a2a-sdk==0.3.26`
+
+If you want to migrate this project to `a2a-sdk` `1.0.0`, follow the upstream
+migration guide first:
+
+[A2A Python SDK v1.0 migration guide](https://github.com/a2aproject/a2a-python/blob/main/docs/migrations/v1_0/README.md)
+
 ## Deploy The Python Agent To Cloud Foundry
 
 Run from the `app/` folder:

@@ -1,15 +1,16 @@
-click>=8.1.8
-httpx>=0.28.1
-langchain-google-genai>=2.0.10
-langgraph>=0.3.18
-langchain-openai>=0.1.0
-pydantic>=2.10.6
-python-dotenv>=1.1.0
-uvicorn>=0.34.2
-sse-starlette>=2.3.6
-starlette>=0.46.2
-a2a-sdk>=0.3.0
-pyjwt>=2.10.1
-cryptography>=44.0.2
-
-sap-ai-sdk-gen[all]
+# Pin direct dependencies because this repo does not use a lockfile.
+# Hold A2A on the last v0.3 release until the codebase is migrated to v1.0.
+a2a-sdk==0.3.26
+click==8.3.2
+cryptography==46.0.7
+httpx==0.28.1
+langchain-google-genai==4.2.1
+langchain-openai==1.1.15
+langgraph==1.1.8
+pydantic==2.13.3
+python-dotenv==1.2.2
+pyjwt==2.12.1
+sap-ai-sdk-gen[all]==6.7.0
+sse-starlette==3.3.4
+starlette==1.0.0
+uvicorn==0.44.0
