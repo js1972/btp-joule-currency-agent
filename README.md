@@ -10,11 +10,12 @@ The example agent is a `Currency Agent` that answers exchange-rate questions.
 
 ## Related Setup Guide
 
-This repository focuses on the code and deployment artifacts. Before using this agent template, read the SAP Community blog post by Felix Bartler from SAP:
+This repository focuses on the code and deployment artifacts. Before using this agent template, read the SAP Community blog post(s) by Felix Bartler from SAP:
 
-[Joule A2A: Connect Code-Based Agents into Joule](https://community.sap.com/t5/technology-blog-posts-by-sap/joule-a2a-connect-code-based-agents-into-joule/ba-p/14329279)
+- [Joule A2A: Connect Code-Based Agents into Joule](https://community.sap.com/t5/technology-blog-posts-by-sap/joule-a2a-connect-code-based-agents-into-joule/ba-p/14329279)
+- [Joule A2A: Handling Multi-Turn Conversations](https://community.sap.com/t5/technology-blog-posts-by-sap/joule-a2a-handeling-multi-turn-conversations/ba-p/14377615)
 
-That blog post covers:
+The blog posts cover:
 
 - which authorization roles a developer needs to use the Joule CLI
 - how to install and set up the Joule CLI
@@ -22,6 +23,7 @@ That blog post covers:
 - how to package and deploy the Joule capability with the Joule CLI
 - how to launch and test the capability in a test Joule assistant
 - how to deploy or update the capability in the main production Joule assistant in your landscape
+- How to configure the Joule capability for multi-turn conversations.
 
 Note:
 - if your SAP Cloud Identity Services tenant enforces MFA, append the current MFA code to the end of your password when logging in with the Joule CLI
