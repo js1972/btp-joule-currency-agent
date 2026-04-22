@@ -88,6 +88,8 @@ migration guide first:
 
 [A2A Python SDK v1.0 migration guide](https://github.com/a2aproject/a2a-python/blob/main/docs/migrations/v1_0/README.md)
 
+> Note: SAP's Joule is fixed to A2A protocol 0.3.0 - [SAP Help on code Based Agents](https://help.sap.com/docs/joule/joule-development-guide-ba88d1ec6a1b442098863d577c19b0c0/code-based-agents-bring-your-own-agent?locale=en-US).
+
 ## Deploy The Python Agent To Cloud Foundry
 
 Run from the `app/` folder:
